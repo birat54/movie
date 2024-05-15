@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+</head>
+<title>My Firebase app</title>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="text-center my-5">Movie Reviews</h1>
+        <div class="dropdown mb-3">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
+                data-bs-toggle="dropdown" aria-expanded="false">
+                Sort by
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <li><a class="dropdown-item" href="#" data-sort="movie_name">Title</a></li>
+                <li><a class="dropdown-item" href="#" data-sort="director">Director</a></li>
+                <li><a class="dropdown-item" href="#" data-sort="release_date">Release date</a></li>
+                <li><a class="dropdown-item" href="#" data-sort="movie_rating">Rating</a></li>
+            </ul>
+        </div>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Director</th>
+                    <th>Release date</th>
+                    <th>Rating</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="reviewList">
+            </tbody>
+        </table>
+
+        <div class="d-flex mb-2">
+            <input type="text" class="form-control" id="movieName" placeholder="Movie name">
+            <input type="text" class="form-control" id="director" placeholder="Director name">
+            <input type="date" class="form-control mx-2" id="releasedate">
+            <select class="form-control mx-2 w-25" id="movieRating">
+                <option value="1">1/5</option>
+                <option value="2">2/5</option>
+                <option value="3">3/5</option>
+                <option value="4">4/5</option>
+                <option value="5">5/5</option>
+            </select>
+            <button type="button" class="btn btn-primary" id="addButton">Add</button>
+        </div>
+
+        <!-- Edit Review Modal -->
+        <div class="modal fade" id="editReviewModal" tabindex="-1" aria-labelledby="editReviewModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editReviewModalLabel">Edit Review</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="editReviewId">
+                        <div class="mb-3">
+                            <label for="editMovieName" class="form-label">Movie Name</label>
+                            <input type="text" class="form-control" id="editMovieName">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editDirector" class="form-label">Director</label>
+                            <input type="text" class="form-control" id="editDirector">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editReleaseDate" class="form-label">Release Date</label>
+                            <input type="date" class="form-control" id="editReleaseDate">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editMovieRating" class="form-label">Rating</label>
+                            <select class="form-control" id="editMovieRating">
+                                <option value="1">1/5</option>
+                                <option value="2">2/5</option>
+                                <option value="3">3/5</option>
+                                <option value="4">4/5</option>
+                                <option value="5">5/5</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="updateButton">Save changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Edit Review Modal -->
+
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <!-- Bootstrap JavaScript -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js">
+        </script>
+        <script type="module">
+            // Import the functions you need from the SDKs you need
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+            import { Firestore, getFirestore, query, collection, onSnapshot, orderBy, addDoc, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+            import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-analytics.js";
+            // TODO: Add SDKs for Firebase products that you want to use
+            // https://firebase.google.com/docs/web/setup#available-libraries
+
+            // Your web app's Firebase configuration
+            // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+            const firebaseConfig = {
+                apiKey: "AIzaSyAITCjLCFYNU1r324w_KZZ6T4GNSEGq3cA",
+                authDomain: "workshop-11-8ce95.firebaseapp.com",
+                projectId: "workshop-11-8ce95",
+                storageBucket: "workshop-11-8ce95.appspot.com",
+                messagingSenderId: "341834896092",
+                appId: "1:341834896092:web:d3b4fe50b2b4e7e0965a19",
+                measurementId: "G-20SMMGBVGT"
+            };
+
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const analytics = getAnalytics(app);
+
+            // Function to render the table with sorted data
+            function renderTable(snapshot) {
+                // Empty HTML table
+                $('#reviewList').empty();
+                // Loop through snapshot data and add to HTML table
+                snapshot.forEach((doc) => {
+                    var tableRow = '<tr>';
+                    tableRow += '<td>' + doc.data().movie_name + '</td>';
+                    tableRow += '<td>' + doc.data().director + '</td>';
+                    tableRow += '<td>' + doc.data().release_date + '</td>';
+                    tableRow += '<td>' + doc.data().movie_rating + '/5</td>';
+                    tableRow += '<td><button type="button" class="btn btn-info btn-sm editBtn" data-id="' + doc.id + '">Edit</button>';
+                    tableRow += '<button type="button" class="btn btn-danger btn-sm deleteBtn ml-1" data-id="' + doc.id + '">Delete</button></td>';
+                    tableRow += '</tr>';
+                    $('#reviewList').append(tableRow);
+                });
+            }
+
+            // Get a live data snapshot (i.e. auto-refresh) of our Reviews collection
+            const q = query(collection(db, "movie-review"), orderBy("movie_name"));
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                renderTable(snapshot);
+                // Display review count
+                $('#mainTitle').html(snapshot.size + " book reviews in the list");
+            });
+
+            // Function to sort table data by column
+            function sortTable(column) {
+                const newQ = query(collection(db, "movie-review"), orderBy(column));
+                onSnapshot(newQ, (snapshot) => {
+                    renderTable(snapshot);
+                });
+            }
+
+            // Sort table when dropdown item is clicked
+            $('.dropdown-menu a').click(function () {
+                const column = $(this).attr('data-sort');
+                sortTable(column);
+            });
+
+            // Add button pressed
+            $("#addButton").click(function () {
+                // Add review to Firestore collection
+                const docRef = addDoc(collection(db, "movie-review"), {
+                    movie_name: $("#movieName").val(),
+                    director: $("#director").val(),
+                    release_date: $("#releasedate").val(),
+                    movie_rating: parseInt($("#movieRating").val())
+                });
+            });
+
+           // Edit button pressed
+$(document).on('click', '.editBtn', function () {
+    const id = $(this).data('id');
+    const docRef = doc(db, "movie-review", id);
+    docRef.get().then((doc) => {
+        if (doc.exists) {
+            const data = doc.data();
+            $("#movieName").val(data.movie_name);
+            $("#director").val(data.director);
+            $("#releasedate").val(data.release_date);
+            $("#movieRating").val(data.movie_rating);
+            // Delete existing data
+            deleteDoc(docRef).then(() => {
+                console.log("Document successfully deleted!");
+            }).catch((error) => {
+                console.error("Error removing document: ", error);
+            });
+        } else {
+            console.log("No such document!");
+        }
+    }).catch((error) => {
+        console.log("Error getting document:", error);
+    });
+});
+
+
+            // Update button pressed
+            $("#updateButton").click(function () {
+                const id = $("#editReviewId").val();
+                const docRef = doc(db, "movie-review", id);
+                setDoc(docRef, {
+                    movie_name: $("#editMovieName").val(),
+                    director: $("#editDirector").val(),
+                    release_date: $("#editReleaseDate").val(),
+                    movie_rating: parseInt($("#editMovieRating").val())
+                }).then(() => {
+                    // Close the edit review modal
+                    $('#editReviewModal').modal('hide');
+                }).catch((error) => {
+                    console.error("Error updating document: ", error);
+                });
+            });
+
+            // Delete button pressed
+            $(document).on('click', '.deleteBtn', function () {
+                const id = $(this).data('id');
+                deleteDoc(doc(db, "movie-review", id)).then(() => {
+                    console.log("Document successfully deleted!");
+                }).catch((error) => {
+                    console.error("Error removing document: ", error);
+                });
+            });
+        </script>
+    </div>
+</body>
+
+</html>
